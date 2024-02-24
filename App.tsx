@@ -5,7 +5,7 @@
  * @format
  */
 
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import type {PropsWithChildren} from 'react';
 import {
   SafeAreaView,
@@ -15,7 +15,13 @@ import {
   Text,
   useColorScheme,
   View,
+  Button,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
+import TrackPlayer, {PlaybackState, State} from 'react-native-track-player';
+import {setupPlayer, addTracks} from './trackPlayerServices';
+import Icon from 'react-native-vector-icons/FontAwesome';
 
 import {
   Colors,
@@ -62,44 +68,93 @@ function App(): React.JSX.Element {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+
+  const [playbackState, setPlaybackState] = useState<State>(State.Paused);
+
+  useEffect(() => {
+    async function setup() {
+      let isSetup = await setupPlayer();
+
+      const queue = await TrackPlayer.getQueue();
+      if (isSetup && queue.length <= 0) {
+        await addTracks();
+      }
+
+      setIsPlayerReady(isSetup);
+      TrackPlayer.play();
+      setPlaybackState(State.Playing);
+    }
+
+    setup();
+  }, []);
+
+  if (!isPlayerReady) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color="#bbb" />
+      </SafeAreaView>
+    );
+  }
+
+  async function handlePlayPress() {
+    if ((await TrackPlayer.getState()) == State.Playing) {
+      TrackPlayer.pause();
+      setPlaybackState(State.Paused);
+    } else {
+      TrackPlayer.play();
+      setPlaybackState(State.Playing);
+    }
+  }
+
+  console.log('playbackState:', playbackState);
   return (
-    <SafeAreaView style={backgroundStyle}>
+    <SafeAreaView style={styles.container}>
+      <Image source={require('./images/denge-logo.png')} />
+
+      <Icon.Button
+        name={playbackState == State.Playing ? 'pause' : 'play'}
+        size={64}
+        backgroundColor="transparent"
+        onPress={handlePlayPress}
+      />
+
+      {playbackState === State.Playing && (
+        <Button
+          title="Durdur"
+          color="#777"
+          onPress={() => {
+            TrackPlayer.pause();
+            setPlaybackState(State.Paused);
+          }}
+        />
+      )}
+      {playbackState === State.Paused && (
+        <Button
+          title="Oynat"
+          color="#777"
+          onPress={() => {
+            TrackPlayer.play();
+            setPlaybackState(State.Playing);
+          }}
+        />
+      )}
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+    // marginTop: 32,
+    // paddingHorizontal: 24,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-around',
+    alignItems: 'center',
   },
   sectionTitle: {
     fontSize: 24,
@@ -112,6 +167,16 @@ const styles = StyleSheet.create({
   },
   highlight: {
     fontWeight: '700',
+  },
+
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    height: '100%',
+    padding: 20,
+    backgroundColor: '#112',
   },
 });
 
